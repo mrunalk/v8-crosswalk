@@ -36,6 +36,7 @@
 #include "src/debug.h"
 #include "src/hashmap.h"
 #include "src/heap-profiler.h"
+#include "src/xdk-utils.h"
 #include "test/cctest/cctest.h"
 
 using i::AllocationTraceNode;
