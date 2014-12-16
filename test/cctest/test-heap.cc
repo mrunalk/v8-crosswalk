@@ -3190,7 +3190,7 @@ TEST(ReleaseOverReservedPages) {
 
   // Prepare many pages with low live-bytes count.
   PagedSpace* old_space = heap->old_space();
-  CHECK_EQ(1, old_space->CountTotalPages());
+  int old_pointer_initial_space_pages = old_space->CountTotalPages();
   for (int i = 0; i < number_of_test_pages; i++) {
     AlwaysAllocateScope always_allocate(isolate);
     SimulateFullSpace(old_space);
