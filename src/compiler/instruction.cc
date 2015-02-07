@@ -53,6 +53,12 @@ std::ostream& operator<<(std::ostream& os,
           return os << "[immediate:" << imm.indexed_value() << "]";
       }
     }
+    case InstructionOperand::FLOAT32x4_STACK_SLOT:
+      return os << "[float32x4_stack:" << op.index() << "]";
+    case InstructionOperand::INT32x4_STACK_SLOT:
+      return os << "[int32x4_stack:" << op.index() << "]";
+    case InstructionOperand::FLOAT64x2_STACK_SLOT:
+      return os << "[float64x2_stack:" << op.index() << "]";
     case InstructionOperand::ALLOCATED: {
       auto allocated = AllocatedOperand::cast(op);
       switch (allocated.allocated_kind()) {
@@ -95,6 +101,10 @@ std::ostream& operator<<(std::ostream& os,
       }
       return os << "]";
     }
+    case InstructionOperand::FLOAT32x4_REGISTER:
+    case InstructionOperand::INT32x4_REGISTER:
+    case InstructionOperand::FLOAT64x2_REGISTER:
+      return os << "[" << conf->double_register_name(op.index()) << "|R]";
     case InstructionOperand::INVALID:
       return os << "(x)";
   }
@@ -504,6 +514,9 @@ InstructionSequence::InstructionSequence(Isolate* isolate,
       immediates_(zone()),
       instructions_(zone()),
       next_virtual_register_(0),
+      float32x4_(std::less<int>(), VirtualRegisterSet::allocator_type(zone())),
+      int32x4_(std::less<int>(), VirtualRegisterSet::allocator_type(zone())),
+      float64x2_(std::less<int>(), VirtualRegisterSet::allocator_type(zone())),
       reference_maps_(zone()),
       representations_(zone()),
       deoptimization_entries_(zone()) {
@@ -615,6 +628,48 @@ void InstructionSequence::MarkAsRepresentation(MachineType machine_type,
   DCHECK_IMPLIES(representations_[virtual_register] != machine_type,
                  representations_[virtual_register] == DefaultRepresentation());
   representations_[virtual_register] = machine_type;
+}
+
+
+bool InstructionSequence::IsFloat32x4(int virtual_register) const {
+  return float32x4_.find(virtual_register) != float32x4_.end();
+}
+
+
+bool InstructionSequence::IsInt32x4(int virtual_register) const {
+  return int32x4_.find(virtual_register) != int32x4_.end();
+}
+
+
+bool InstructionSequence::IsFloat64x2(int virtual_register) const {
+  return float64x2_.find(virtual_register) != float64x2_.end();
+}
+
+
+void InstructionSequence::MarkAsDouble(int virtual_register) {
+  doubles_.insert(virtual_register);
+}
+
+
+void InstructionSequence::MarkAsFloat32x4(int virtual_register) {
+  float32x4_.insert(virtual_register);
+}
+
+
+void InstructionSequence::MarkAsInt32x4(int virtual_register) {
+  int32x4_.insert(virtual_register);
+}
+
+
+void InstructionSequence::MarkAsFloat64x2(int virtual_register) {
+  float64x2_.insert(virtual_register);
+}
+
+
+void InstructionSequence::AddGapMove(int index, InstructionOperand* from,
+                                     InstructionOperand* to) {
+  GapAt(index)->GetOrCreateParallelMove(GapInstruction::START, zone())->AddMove(
+      from, to, zone());
 }
 
 

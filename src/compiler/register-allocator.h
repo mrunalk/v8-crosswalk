@@ -14,7 +14,10 @@ namespace compiler {
 
 enum RegisterKind {
   GENERAL_REGISTERS,
-  DOUBLE_REGISTERS
+  DOUBLE_REGISTERS,
+  FLOAT32x4_REGISTERS,
+  INT32x4_REGISTERS,
+  FLOAT64x2_REGISTERS,
 };
 
 
@@ -150,6 +153,12 @@ class LifetimePosition final {
 
   int value_;
 };
+
+
+inline bool IsSIMD128RegisterKind(RegisterKind kind) {
+  return kind == FLOAT32x4_REGISTERS || kind == INT32x4_REGISTERS ||
+         kind == FLOAT64x2_REGISTERS;
+}
 
 
 // Representation of the non-empty interval [start,end[.

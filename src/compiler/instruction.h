@@ -24,13 +24,45 @@ namespace compiler {
 
 class Schedule;
 
+// A couple of reserved opcodes are used for internal use.
+const InstructionCode kGapInstruction = -1;
+const InstructionCode kSourcePositionInstruction = -2;
+
+#define INSTRUCTION_OPERAND_LIST(V)     \
+  V(Constant, CONSTANT)                 \
+  V(Immediate, IMMEDIATE)               \
+  V(StackSlot, STACK_SLOT)              \
+  V(DoubleStackSlot, DOUBLE_STACK_SLOT) \
+  V(Float32x4StackSlot, FLOAT32x4_STACK_SLOT)   \
+  V(Int32x4StackSlot, INT32x4_STACK_SLOT)       \
+  V(Float64x2StackSlot, FLOAT64x2_STACK_SLOT)   \
+  V(Register, REGISTER)                 \
+  V(DoubleRegister, DOUBLE_REGISTER)    \
+  V(Float32x4Register, FLOAT32x4_REGISTER)      \
+  V(Int32x4Register, INT32x4_REGISTER)          \
+  V(Float64x2Register, FLOAT64x2_REGISTER)
+
 class InstructionOperand {
  public:
   static const int kInvalidVirtualRegister = -1;
 
-  // TODO(dcarney): recover bit. INVALID can be represented as UNALLOCATED with
-  // kInvalidVirtualRegister and some DCHECKS.
-  enum Kind { INVALID, UNALLOCATED, CONSTANT, IMMEDIATE, ALLOCATED };
+  enum Kind {
+    INVALID,
+    UNALLOCATED,
+    CONSTANT,
+    IMMEDIATE,
+    ALLOCATED,
+    STACK_SLOT,
+    DOUBLE_STACK_SLOT,
+    FLOAT32x4_STACK_SLOT,
+    INT32x4_STACK_SLOT,
+    FLOAT64x2_STACK_SLOT,
+    REGISTER,
+    DOUBLE_REGISTER,
+    FLOAT32x4_REGISTER,
+    INT32x4_REGISTER,
+    FLOAT64x2_REGISTER
+  };
 
   InstructionOperand() : InstructionOperand(INVALID) {}
 
@@ -44,6 +76,30 @@ class InstructionOperand {
   INSTRUCTION_OPERAND_PREDICATE(Immediate, IMMEDIATE)
   INSTRUCTION_OPERAND_PREDICATE(Allocated, ALLOCATED)
 #undef INSTRUCTION_OPERAND_PREDICATE
+  bool IsSIMD128Register() const {
+    return kind() == FLOAT32x4_REGISTER || kind() == INT32x4_REGISTER ||
+           kind() == FLOAT64x2_REGISTER;
+  }
+  bool IsSIMD128StackSlot() const {
+    return kind() == FLOAT32x4_STACK_SLOT || kind() == INT32x4_STACK_SLOT ||
+           kind() == FLOAT64x2_STACK_SLOT;
+  }
+  bool Equals(const InstructionOperand* other) const {
+    return value_ == other->value_ ||
+           (index() == other->index() &&
+            ((IsSIMD128Register() && other->IsSIMD128Register()) ||
+             (IsSIMD128StackSlot() && other->IsSIMD128StackSlot())));
+    ;
+  }
+
+  void ConvertTo(Kind kind, int index) {
+    if (kind == REGISTER || kind == DOUBLE_REGISTER ||
+        kind == FLOAT32x4_REGISTER || kind == INT32x4_REGISTER ||
+        kind == FLOAT64x2_REGISTER)
+      DCHECK(index >= 0);
+    DCHECK(kind != UNALLOCATED && kind != INVALID);
+    ConvertTo(kind, index, kInvalidVirtualRegister);
+  }
 
   inline bool IsRegister() const;
   inline bool IsDoubleRegister() const;
@@ -76,6 +132,10 @@ class InstructionOperand {
   bool CompareModuloType(const InstructionOperand& that) const {
     return this->GetValueModuloType() < that.GetValueModuloType();
   }
+
+  typedef BitField64<Kind, 0, 4> KindField;
+  typedef BitField64<uint32_t, 4, 32> VirtualRegisterField;
+  typedef BitField64<int32_t, 36, 29> IndexField;
 
  protected:
   explicit InstructionOperand(Kind kind) : value_(KindField::encode(kind)) {}
@@ -174,6 +234,40 @@ class UnallocatedOperand : public InstructionOperand {
     value_ |= ExtendedPolicyField::encode(policy);
     value_ |= LifetimeField::encode(lifetime);
   }
+
+  // The encoding used for UnallocatedOperand operands depends on the policy
+  // that is
+  // stored within the operand. The FIXED_SLOT policy uses a compact encoding
+  // because it accommodates a larger pay-load.
+  //
+  // For FIXED_SLOT policy:
+  //     +------------------------------------------------+
+  //     |      slot_index   | 0 | virtual_register | 0001 |
+  //     +------------------------------------------------+
+  //
+  // For all other (extended) policies:
+  //     +-----------------------------------------------------+
+  //     |  reg_index  | L | PPP |  1 | virtual_register | 0001 |
+  //     +-----------------------------------------------------+
+  //     L ... Lifetime
+  //     P ... Policy
+  //
+  // The slot index is a signed value which requires us to decode it manually
+  // instead of using the BitField utility class.
+
+  // All bits fit into the index field.
+  STATIC_ASSERT(IndexField::kShift == 36);
+
+  // BitFields for all unallocated operands.
+  class BasicPolicyField : public BitField64<BasicPolicy, 36, 1> {};
+
+  // BitFields specific to BasicPolicy::FIXED_SLOT.
+  class FixedSlotIndexField : public BitField64<int, 37, 28> {};
+
+  // BitFields specific to BasicPolicy::EXTENDED_POLICY.
+  class ExtendedPolicyField : public BitField64<ExtendedPolicy, 37, 3> {};
+  class LifetimeField : public BitField64<Lifetime, 40, 1> {};
+  class FixedRegisterField : public BitField64<int, 41, 6> {};
 
   // Predicates for the operand policy.
   bool HasAnyPolicy() const {
@@ -1059,6 +1153,9 @@ class InstructionSequence final : public ZoneObject {
   }
   MachineType GetRepresentation(int virtual_register) const;
   void MarkAsRepresentation(MachineType machine_type, int virtual_register);
+  bool IsFloat32x4(int virtual_register) const;
+  bool IsInt32x4(int virtual_register) const;
+  bool IsFloat64x2(int virtual_register) const;
 
   bool IsReference(int virtual_register) const {
     return GetRepresentation(virtual_register) == kRepTagged;
@@ -1072,6 +1169,9 @@ class InstructionSequence final : public ZoneObject {
         return false;
     }
   }
+  void MarkAsFloat32x4(int virtual_register);
+  void MarkAsInt32x4(int virtual_register);
+  void MarkAsFloat64x2(int virtual_register);
 
   Instruction* GetBlockStart(RpoNumber rpo) const;
 
@@ -1175,6 +1275,9 @@ class InstructionSequence final : public ZoneObject {
   int next_virtual_register_;
   ReferenceMapDeque reference_maps_;
   ZoneVector<MachineType> representations_;
+  VirtualRegisterSet float32x4_;
+  VirtualRegisterSet int32x4_;
+  VirtualRegisterSet float64x2_;
   DeoptimizationVector deoptimization_entries_;
 
   DISALLOW_COPY_AND_ASSIGN(InstructionSequence);

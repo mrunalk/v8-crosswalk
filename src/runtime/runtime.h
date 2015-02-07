@@ -907,6 +907,9 @@ namespace internal {
   F(NewRestParamSlow, 1, 1)                                  \
   F(NewClosureFromStubFailure, 1, 1)                         \
   F(NewClosure, 3, 1)                                        \
+  F(ThrowNotFloat32x4Error, 0, 1)                            \
+  F(ThrowNotFloat64x2Error, 0, 1)                            \
+  F(ThrowNotInt32x4Error, 0, 1)                              \
   F(NewScriptContext, 2, 1)                                  \
   F(NewFunctionContext, 1, 1)                                \
   F(PushWithContext, 2, 1)                                   \

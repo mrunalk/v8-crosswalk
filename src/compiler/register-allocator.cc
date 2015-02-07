@@ -425,6 +425,12 @@ InstructionOperand LiveRange::GetAssignedOperand() const {
         return RegisterOperand(machine_type(), assigned_register());
       case DOUBLE_REGISTERS:
         return DoubleRegisterOperand(machine_type(), assigned_register());
+      case FLOAT32x4_REGISTERS:
+        return cache->Float32x4RegisterOperand(assigned_register());
+      case INT32x4_REGISTERS:
+        return cache->Int32x4RegisterOperand(assigned_register());
+      case FLOAT64x2_REGISTERS:
+        return cache->Float64x2RegisterOperand(assigned_register());
     }
   }
   DCHECK(spilled());
@@ -677,7 +683,8 @@ void LiveRange::ConvertUsesToOperand(const InstructionOperand& op,
         InstructionOperand::ReplaceWith(pos->operand(), &spill_op);
         break;
       case UsePositionType::kRequiresRegister:
-        DCHECK(op.IsRegister() || op.IsDoubleRegister());
+        DCHECK(op.IsRegister() || op.IsDoubleRegister() ||
+               op.IsSIMD128Register());
       // Fall through.
       case UsePositionType::kAny:
         InstructionOperand::ReplaceWith(pos->operand(), &op);
@@ -857,6 +864,25 @@ void SpillRange::MergeDisjointIntervals(UseInterval* other) {
     current = current->next();
   }
   // Other list is empty => we are done
+}
+
+
+auto GetSpillSlotKind(RegisterKind kind) -> InstructionOperand::Kind {
+  switch (kind) {
+    case GENERAL_REGISTERS:
+      return InstructionOperand::STACK_SLOT;
+    case DOUBLE_REGISTERS:
+      return InstructionOperand::DOUBLE_STACK_SLOT;
+    case FLOAT32x4_REGISTERS:
+      return InstructionOperand::FLOAT32x4_STACK_SLOT;
+    case INT32x4_REGISTERS:
+      return InstructionOperand::INT32x4_STACK_SLOT;
+    case FLOAT64x2_REGISTERS:
+      return InstructionOperand::FLOAT64x2_STACK_SLOT;
+    default:
+      UNREACHABLE();
+      return InstructionOperand::UNALLOCATED;
+  }
 }
 
 
@@ -1833,6 +1859,9 @@ void LinearScanAllocator::AllocateRegisters() {
   for (auto range : data()->live_ranges()) {
     if (range == nullptr) continue;
     if (range->kind() == mode()) {
+      AddToUnhandledUnsorted(range);
+    } else if (mode_ == DOUBLE_REGISTERS &&
+               IsSIMD128RegisterKind(range->Kind())) {
       AddToUnhandledUnsorted(range);
     }
   }
