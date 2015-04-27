@@ -190,6 +190,14 @@ const StoreNamedParameters& StoreNamedParametersOf(const Operator* op) {
   return OpParameter<StoreNamedParameters>(op);
 }
 
+#if V8_TARGET_ARCH_IA32 || V8_TARGET_ARCH_X64
+#define SIMD_CACHED_OP_LIST(V)                            \
+  V(ToFloat32x4Obj, Operator::kNoProperties, 1, 1)        \
+  V(ToInt32x4Obj, Operator::kNoProperties, 1, 1)          \
+  V(ToFloat64x2Obj, Operator::kNoProperties, 1, 1)
+#else
+#define SIMD_CACHED_OP_LIST(V)
+#endif
 
 bool operator==(CreateClosureParameters const& lhs,
                 CreateClosureParameters const& rhs) {
@@ -233,9 +241,6 @@ const CreateClosureParameters& CreateClosureParametersOf(const Operator* op) {
   V(ToString, Operator::kNoProperties, 1, 1)              \
   V(ToName, Operator::kNoProperties, 1, 1)                \
   V(ToObject, Operator::kNoProperties, 1, 1)              \
-  V(ToFloat32x4Obj, Operator::kNoProperties, 1, 1)        \
-  V(ToInt32x4Obj, Operator::kNoProperties, 1, 1)          \
-  V(ToFloat64x2Obj, Operator::kNoProperties, 1, 1)        \
   V(Yield, Operator::kNoProperties, 1, 1)                 \
   V(Create, Operator::kEliminatable, 0, 1)                \
   V(HasProperty, Operator::kNoProperties, 2, 1)           \
@@ -246,7 +251,8 @@ const CreateClosureParameters& CreateClosureParametersOf(const Operator* op) {
   V(CreateWithContext, Operator::kNoProperties, 2, 1)     \
   V(CreateBlockContext, Operator::kNoProperties, 2, 1)    \
   V(CreateModuleContext, Operator::kNoProperties, 2, 1)   \
-  V(CreateScriptContext, Operator::kNoProperties, 2, 1)
+  V(CreateScriptContext, Operator::kNoProperties, 2, 1)   \
+  SIMD_CACHED_OP_LIST(V)
 
 
 #define CACHED_OP_LIST_WITH_LANGUAGE_MODE(V)           \

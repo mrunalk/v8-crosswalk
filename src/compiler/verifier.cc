@@ -484,9 +484,11 @@ void Verifier::Visitor::Check(Node* node) {
       CheckUpperIs(node, Type::Name());
       break;
     case IrOpcode::kJSToObject:
+#if V8_TARGET_ARCH_IA32 || V8_TARGET_ARCH_X64
     case IrOpcode::kJSToFloat32x4Obj:
     case IrOpcode::kJSToInt32x4Obj:
     case IrOpcode::kJSToFloat64x2Obj:
+#endif
       // Type is Receiver.
       CheckUpperIs(node, Type::Receiver());
       break;
@@ -832,6 +834,7 @@ void Verifier::Visitor::Check(Node* node) {
     case IrOpcode::kLoadStackPointer:
     case IrOpcode::kCheckedLoad:
     case IrOpcode::kCheckedStore:
+#if V8_TARGET_ARCH_IA32 || V8_TARGET_ARCH_X64
     case IrOpcode::kFloat32x4Add:
     case IrOpcode::kFloat32x4Sub:
     case IrOpcode::kFloat32x4Mul:
@@ -931,6 +934,7 @@ void Verifier::Visitor::Check(Node* node) {
     case IrOpcode::kInt32x4ToFloat32x4:
     case IrOpcode::kFloat32x4BitsToInt32x4:
     case IrOpcode::kFloat32x4ToInt32x4:
+#endif
       // TODO(rossberg): Check.
       break;
   }

@@ -53,9 +53,11 @@ class JSTypedLowering final : public Reducer {
   Reduction ReduceJSToBoolean(Node* node);
   Reduction ReduceJSToNumberInput(Node* input);
   Reduction ReduceJSToNumber(Node* node);
+#if V8_TARGET_ARCH_IA32 || V8_TARGET_ARCH_X64
   Reduction ReduceJSToFloat32x4Obj(Node* node);
   Reduction ReduceJSToInt32x4Obj(Node* node);
   Reduction ReduceJSToFloat64x2Obj(Node* node);
+#endif
   Reduction ReduceJSToStringInput(Node* input);
   Reduction ReduceJSToString(Node* node);
   Reduction ReduceJSCreateClosure(Node* node);

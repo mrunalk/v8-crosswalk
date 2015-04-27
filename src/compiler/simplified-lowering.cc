@@ -1093,6 +1093,7 @@ class RepresentationSelector {
       case IrOpcode::kStateValues:
         VisitStateValues(node);
         break;
+#if V8_TARGET_ARCH_IA32 || V8_TARGET_ARCH_X64
       case IrOpcode::kFloat32x4Add:
       case IrOpcode::kFloat32x4Sub:
       case IrOpcode::kFloat32x4Mul:
@@ -1353,6 +1354,7 @@ class RepresentationSelector {
         ProcessInput(node, 0, kMachFloat32x4);
         SetOutput(node, kMachInt32x4);
         break;
+#endif
       default:
         VisitInputs(node);
         break;
